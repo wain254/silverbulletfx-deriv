@@ -7,6 +7,7 @@ import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import './app-root.scss';
+import AIDigitAnalyser from '@/components/ai-digit-analyser/ai-digit-analyser';
 
 const AppContent = lazy(() => import('./app-content'));
 
@@ -38,12 +39,9 @@ const AppRoot = () => {
     const api_base_initialized = useRef(false);
     const [is_api_initialized, setIsApiInitialized] = useState(false);
 
-    // Initialize API
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            if (!is_api_initialized) {
-                setIsApiInitialized(true);
-            }
+            if (!is_api_initialized) setIsApiInitialized(true);
         }, 5000);
 
         const initializeApi = async () => {
@@ -56,7 +54,7 @@ const AppRoot = () => {
                     api_base_initialized.current = false;
                 } finally {
                     setIsApiInitialized(true);
-                    clearTimeout(timeoutId); // Clear timeout if API init completes
+                    clearTimeout(timeoutId);
                 }
             }
         };
@@ -72,6 +70,7 @@ const AppRoot = () => {
             <ErrorBoundary root_store={store}>
                 <ErrorComponentWrapper />
                 <AppContent />
+                <AIDigitAnalyser />
             </ErrorBoundary>
         </Suspense>
     );
