@@ -1,5 +1,5 @@
 {
-    "brand_name": "YourBrand",
+    "brand_name": "SilverBulletFX",
     "brand_domain": "yourbrand.com",
     "brand_hostname": {
         "staging": "staging.yourbrand.com/dashboard",
@@ -7,27 +7,27 @@
     },
     "domain_name": "YourBrand.com",
     "colors": {
-        "primary": "#3B82F6",
-        "secondary": "#64748b",
-        "tertiary": "#8b5cf6",
-        "success": "#10b981",
-        "danger": "#ef4444",
-        "warning": "#f59e0b",
-        "info": "#0ea5e9",
-        "neutral": "#6b7280",
-        "black": "#0f172a",
-        "white": "#ffffff",
+        "primary": "#37E59A",
+        "secondary": "#52A8FF",
+        "tertiary": "#8B5CF6",
+        "success": "#37E59A",
+        "danger": "#EF4444",
+        "warning": "#F59E0B",
+        "info": "#52A8FF",
+        "neutral": "#6B7280",
+        "black": "#050A12",
+        "white": "#FFFFFF",
         "grey": {
-            "50": "#f8fafc",
-            "100": "#f1f5f9",
-            "200": "#e2e8f0",
-            "300": "#cbd5e1",
-            "400": "#94a3b8",
-            "500": "#64748b",
+            "50": "#F8FAFC",
+            "100": "#F1F5F9",
+            "200": "#E2E8F0",
+            "300": "#CBD5E1",
+            "400": "#94A3B8",
+            "500": "#64748B",
             "600": "#475569",
             "700": "#334155",
-            "800": "#1e293b",
-            "900": "#0f172a"
+            "800": "#1E293B",
+            "900": "#0F172A"
         }
     },
     "typography": {
@@ -48,30 +48,9 @@
         }
     },
     "color_variants": {
-        "light_variants": [
-            100,
-            200,
-            300,
-            400,
-            500
-        ],
-        "dark_variants": [
-            600,
-            700,
-            800,
-            900
-        ],
-        "opacity_variants": [
-            10,
-            20,
-            30,
-            40,
-            50,
-            60,
-            70,
-            80,
-            90
-        ]
+        "light_variants": [100, 200, 300, 400, 500],
+        "dark_variants": [600, 700, 800, 900],
+        "opacity_variants": [10, 20, 30, 40, 50, 60, 70, 80, 90]
     },
     "theme_config": {
         "enable_dynamic_themes": true,
