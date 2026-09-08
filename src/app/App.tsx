@@ -16,63 +16,63 @@ import './app-root.scss';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
+const LandingPage = lazy(() => import('../pages/landing/landing'));
 
-/**
- * Component wrapper to handle language URL parameter
- * Uses the useLanguageFromURL hook to process language switching
- */
 const LanguageHandler = ({ children }: { children: React.ReactNode }) => {
     useLanguageFromURL();
     return <>{children}</>;
 };
 
-// The static preview build is served under /bot/preview (see rsbuild.config.ts
-// assetPrefix), so React Router must resolve routes under that prefix. Standalone
-// partner deploys are served at the root, so no basename there.
+const AppProviders = ({ children }: { children: React.ReactNode }) => (
+    <TranslationProvider defaultLang='EN' i18nInstance={i18nInstance}>
+        <LanguageHandler>
+            <StoreProvider>
+                <LocalStorageSyncWrapper>
+                    <RoutePromptDialog />
+                    <CoreStoreProvider>{children}</CoreStoreProvider>
+                </LocalStorageSyncWrapper>
+            </StoreProvider>
+        </LanguageHandler>
+    </TranslationProvider>
+);
+
+const AppShell = () => (
+    <Suspense fallback={<ChunkLoader message={localize('Please wait while we connect to the server...')} />}>
+        <AppProviders>
+            <Layout />
+        </AppProviders>
+    </Suspense>
+);
+
+const LandingShell = () => (
+    <Suspense fallback={<ChunkLoader message={localize('Loading SilverBulletFX...')} />}>
+        <LandingPage />
+    </Suspense>
+);
+
 const routerBasename = isPreviewMode() ? PREVIEW_BASE_PATH : undefined;
 
 const router = createBrowserRouter(
     createRoutesFromElements(
-        <Route
-            path='/'
-            element={
-                <Suspense
-                    fallback={<ChunkLoader message={localize('Please wait while we connect to the server...')} />}
-                >
-                    <TranslationProvider defaultLang='EN' i18nInstance={i18nInstance}>
-                        <LanguageHandler>
-                            <StoreProvider>
-                                <LocalStorageSyncWrapper>
-                                    <RoutePromptDialog />
-                                    <CoreStoreProvider>
-                                        <Layout />
-                                    </CoreStoreProvider>
-                                </LocalStorageSyncWrapper>
-                            </StoreProvider>
-                        </LanguageHandler>
-                    </TranslationProvider>
-                </Suspense>
-            }
-        >
-            {/* All child routes will be passed as children to Layout */}
-            <Route index element={<AppRoot />} />
-            {/* App Builder embeds the template at /preview — render the same app shell */}
-            <Route path='preview' element={<AppRoot />} />
-        </Route>
+        <>
+            {/* Public marketing landing page. The trading workspace is intentionally separated at /app. */}
+            <Route path='/' element={<LandingShell />} />
+
+            {/* Main SilverBulletFX workspace. Existing dashboard/bot-builder behaviour is preserved here. */}
+            <Route path='/app' element={<AppShell />}>
+                <Route index element={<AppRoot />} />
+            </Route>
+
+            {/* App Builder preview keeps the existing /preview entry point. */}
+            <Route path='/preview' element={<AppShell />}>
+                <Route index element={<AppRoot />} />
+            </Route>
+        </>
     ),
     { basename: routerBasename }
 );
 
-/**
- * Main App component
- *
- * Responsibilities:
- * 1. OAuth callback handling (via vendored deriv-core handleOAuthCallback)
- * 2. Account switching from URL (via useAccountSwitching hook)
- * 3. Router provider setup
- */
 function App() {
-    // Handle account switching via URL parameter
     useAccountSwitching();
 
     React.useEffect(() => {
@@ -100,6 +100,7 @@ function App() {
 
                     const { api_base } = await import('@/external/bot-skeleton');
                     await api_base.init(true);
+                    window.location.replace('/app#dashboard');
                 } else {
                     console.error('No accounts returned after authentication');
                 }
