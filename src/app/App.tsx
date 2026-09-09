@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import React from 'react';
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
-import { cleanupUrl, handleOAuthCallback } from '@/external/deriv-core';
+import { cleanupUrl, getAuthInfo, handleOAuthCallback } from '@/external/deriv-core';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import LocalStorageSyncWrapper from '@/components/localStorage-sync-wrapper';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
@@ -38,9 +38,7 @@ const AppProviders = ({ children }: { children: React.ReactNode }) => (
 
 const AppShell = () => (
     <Suspense fallback={<ChunkLoader message={localize('Please wait while we connect to the server...')} />}>
-        <AppProviders>
-            <Layout />
-        </AppProviders>
+        <AppProviders><Layout /></AppProviders>
     </Suspense>
 );
 
@@ -50,23 +48,25 @@ const LandingShell = () => (
     </Suspense>
 );
 
+const ProtectedAppShell = () => {
+    const hasAuthCode = new URLSearchParams(window.location.search).has('code');
+    const authenticated = Boolean(getAuthInfo());
+
+    if (!authenticated && !hasAuthCode) {
+        return <LandingShell />;
+    }
+
+    return <AppShell />;
+};
+
 const routerBasename = isPreviewMode() ? PREVIEW_BASE_PATH : undefined;
 
 const router = createBrowserRouter(
     createRoutesFromElements(
         <>
-            {/* Public marketing landing page. The trading workspace is intentionally separated at /app. */}
             <Route path='/' element={<LandingShell />} />
-
-            {/* Main SilverBulletFX workspace. Existing dashboard/bot-builder behaviour is preserved here. */}
-            <Route path='/app' element={<AppShell />}>
-                <Route index element={<AppRoot />} />
-            </Route>
-
-            {/* App Builder preview keeps the existing /preview entry point. */}
-            <Route path='/preview' element={<AppShell />}>
-                <Route index element={<AppRoot />} />
-            </Route>
+            <Route path='/app' element={<ProtectedAppShell />}><Route index element={<AppRoot />} /></Route>
+            <Route path='/preview' element={<ProtectedAppShell />}><Route index element={<AppRoot />} /></Route>
         </>
     ),
     { basename: routerBasename }
@@ -94,8 +94,7 @@ function App() {
                     DerivWSAccountsService.storeAccounts(accounts);
                     const firstAccount = accounts[0];
                     localStorage.setItem('active_loginid', firstAccount.account_id);
-                    const isDemo =
-                        firstAccount.account_id.startsWith('VRT') || firstAccount.account_id.startsWith('VRTC');
+                    const isDemo = firstAccount.account_id.startsWith('VRT') || firstAccount.account_id.startsWith('VRTC');
                     localStorage.setItem('account_type', isDemo ? 'demo' : 'real');
 
                     const { api_base } = await import('@/external/bot-skeleton');
