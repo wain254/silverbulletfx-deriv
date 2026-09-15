@@ -90,6 +90,7 @@ const FALLBACK_MARKETS: Market[] = [
 ];
 
 const MAX_TICKS = 500;
+const DEFAULT_DERIV_APP_ID = '1089';
 
 const AIDigitAnalyser = () => {
     const [open, setOpen] = useState(false);
@@ -111,152 +112,182 @@ const AIDigitAnalyser = () => {
     const [aiError, setAiError] = useState('');
     const [aiResult, setAiResult] = useState<AIResult | null>(null);
     const socketRef = useRef<WebSocket | null>(null);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reconnectAttemptRef = useRef(0);
     const pipSizeRef = useRef<number | undefined>(undefined);
 
     useEffect(() => {
         if (!open) return;
 
-        // Public Deriv market-data WebSocket does not require an App ID.
-        // This avoids the legacy App-ID connection failure shown on the deployed site.
-        const socket = new WebSocket('wss://ws.binaryws.com/websockets/v3');
-        socketRef.current = socket;
-        pipSizeRef.current = undefined;
-        setDigits([]);
-        setLastQuote(null);
-        setLastTickAt(null);
-        setConnected(false);
-        setLoadingMarkets(true);
-        setLoadingHistory(true);
-        setError('');
-        setAiResult(null);
-        setAiError('');
+        let disposed = false;
 
-        const requestHistoryAndContracts = () => {
-            if (socket.readyState !== WebSocket.OPEN) return;
-            socket.send(JSON.stringify({ contracts_for: symbol, req_id: 2 }));
-            socket.send(
-                JSON.stringify({
-                    ticks_history: symbol,
-                    count: MAX_TICKS,
-                    end: 'latest',
-                    style: 'ticks',
-                    adjust_start_time: 1,
-                    subscribe: 0,
-                    req_id: 3,
-                })
-            );
-        };
+        const appId = import.meta.env.VITE_DERIV_APP_ID || DEFAULT_DERIV_APP_ID;
+        const wsUrl = `wss://ws.binaryws.com/websockets/v3?app_id=${encodeURIComponent(appId)}`;
 
-        socket.onopen = () => {
-            setConnected(true);
-            socket.send(
-                JSON.stringify({
-                    active_symbols: 'brief',
-                    contract_type: DIGIT_CONTRACT_TYPES,
-                    req_id: 1,
-                })
-            );
-            requestHistoryAndContracts();
-        };
+        const connect = () => {
+            if (disposed) return;
 
-        socket.onmessage = event => {
-            try {
-                const message = JSON.parse(event.data) as TickMessage;
-
-                if (message.error?.message) {
-                    setError(message.error.message);
-                    setLoadingMarkets(false);
-                    setLoadingHistory(false);
-                    return;
-                }
-
-                if (message.msg_type === 'active_symbols' && message.active_symbols) {
-                    const discovered = message.active_symbols
-                        .map(item => {
-                            const marketSymbol = item.underlying_symbol || item.symbol;
-                            const label = item.underlying_symbol_name || item.display_name || marketSymbol;
-                            return marketSymbol
-                                ? {
-                                      label,
-                                      symbol: marketSymbol,
-                                      market: item.market,
-                                      submarket: item.submarket,
-                                  }
-                                : null;
-                        })
-                        .filter((item): item is Market => Boolean(item));
-
-                    if (discovered.length) {
-                        discovered.sort((a, b) => `${a.market || ''}${a.label}`.localeCompare(`${b.market || ''}${b.label}`));
-                        setMarkets(discovered);
-                        setLoadingMarkets(false);
-                    } else {
-                        setLoadingMarkets(false);
-                    }
-                    return;
-                }
-
-                if (message.msg_type === 'contracts_for') {
-                    const digitContracts = (message.contracts_for?.available || [])
-                        .map(item => item.contract_type)
-                        .filter((type): type is DigitContract =>
-                            Boolean(type && DIGIT_CONTRACT_TYPES.includes(type as DigitContract))
-                        )
-                        .map(id => ({ id, label: CONTRACT_LABELS[id] }));
-
-                    const uniqueContracts = digitContracts.filter(
-                        (item, index, list) => list.findIndex(candidate => candidate.id === item.id) === index
-                    );
-
-                    if (uniqueContracts.length) {
-                        setContracts(uniqueContracts);
-                        setContract(current =>
-                            uniqueContracts.some(item => item.id === current) ? current : uniqueContracts[0].id
-                        );
-                    } else {
-                        setContracts([]);
-                        setError('This market currently has no supported digit options. Select another market.');
-                    }
-                    return;
-                }
-
-                if (message.msg_type === 'history' && message.history?.prices) {
-                    if (message.pip_size != null) pipSizeRef.current = message.pip_size;
-                    const historyDigits = message.history.prices
-                        .map(price => getLastDigit(Number(price), pipSizeRef.current))
-                        .filter(Number.isFinite);
-                    setDigits(historyDigits.slice(-MAX_TICKS));
-                    setLoadingHistory(false);
-                    if (socket.readyState === WebSocket.OPEN) {
-                        socket.send(JSON.stringify({ ticks: symbol, subscribe: 1, req_id: 4 }));
-                    }
-                    return;
-                }
-
-                if (message.msg_type === 'tick' && message.tick?.quote != null) {
-                    if (message.tick.pip_size != null) pipSizeRef.current = message.tick.pip_size;
-                    const quote = Number(message.tick.quote);
-                    if (!Number.isFinite(quote)) return;
-                    setLastQuote(quote);
-                    setLastTickAt(Date.now());
-                    setDigits(current => [...current, getLastDigit(quote, pipSizeRef.current)].slice(-MAX_TICKS));
-                }
-            } catch {
-                setError('Received invalid market data from Deriv.');
-            }
-        };
-
-        socket.onerror = () => {
+            const socket = new WebSocket(wsUrl);
+            socketRef.current = socket;
+            pipSizeRef.current = undefined;
+            setDigits([]);
+            setLastQuote(null);
+            setLastTickAt(null);
             setConnected(false);
-            setLoadingMarkets(false);
-            setLoadingHistory(false);
-            setError('Unable to connect to Deriv public market data.');
+            setLoadingMarkets(true);
+            setLoadingHistory(true);
+            setError('');
+            setAiResult(null);
+            setAiError('');
+
+            const requestHistoryAndContracts = () => {
+                if (socket.readyState !== WebSocket.OPEN) return;
+                socket.send(JSON.stringify({ contracts_for: symbol, req_id: 2 }));
+                socket.send(
+                    JSON.stringify({
+                        ticks_history: symbol,
+                        count: MAX_TICKS,
+                        end: 'latest',
+                        style: 'ticks',
+                        adjust_start_time: 1,
+                        subscribe: 0,
+                        req_id: 3,
+                    })
+                );
+            };
+
+            socket.onopen = () => {
+                reconnectAttemptRef.current = 0;
+                setConnected(true);
+                setError('');
+                socket.send(
+                    JSON.stringify({
+                        active_symbols: 'brief',
+                        contract_type: DIGIT_CONTRACT_TYPES,
+                        req_id: 1,
+                    })
+                );
+                requestHistoryAndContracts();
+            };
+
+            socket.onmessage = event => {
+                try {
+                    const message = JSON.parse(event.data) as TickMessage;
+
+                    if (message.error?.message) {
+                        setError(`Deriv API error: ${message.error.message}`);
+                        setLoadingMarkets(false);
+                        setLoadingHistory(false);
+                        return;
+                    }
+
+                    if (message.msg_type === 'active_symbols' && message.active_symbols) {
+                        const discovered = message.active_symbols
+                            .map(item => {
+                                const marketSymbol = item.underlying_symbol || item.symbol;
+                                const label = item.underlying_symbol_name || item.display_name || marketSymbol;
+                                return marketSymbol
+                                    ? {
+                                          label,
+                                          symbol: marketSymbol,
+                                          market: item.market,
+                                          submarket: item.submarket,
+                                      }
+                                    : null;
+                            })
+                            .filter((item): item is Market => Boolean(item));
+
+                        if (discovered.length) {
+                            discovered.sort((a, b) => `${a.market || ''}${a.label}`.localeCompare(`${b.market || ''}${b.label}`));
+                            setMarkets(discovered);
+                        }
+                        setLoadingMarkets(false);
+                        return;
+                    }
+
+                    if (message.msg_type === 'contracts_for') {
+                        const digitContracts = (message.contracts_for?.available || [])
+                            .map(item => item.contract_type)
+                            .filter((type): type is DigitContract =>
+                                Boolean(type && DIGIT_CONTRACT_TYPES.includes(type as DigitContract))
+                            )
+                            .map(id => ({ id, label: CONTRACT_LABELS[id] }));
+
+                        const uniqueContracts = digitContracts.filter(
+                            (item, index, list) => list.findIndex(candidate => candidate.id === item.id) === index
+                        );
+
+                        if (uniqueContracts.length) {
+                            setContracts(uniqueContracts);
+                            setContract(current =>
+                                uniqueContracts.some(item => item.id === current) ? current : uniqueContracts[0].id
+                            );
+                        } else {
+                            setContracts([]);
+                            setError('This market currently has no supported digit options. Select another market.');
+                        }
+                        return;
+                    }
+
+                    if (message.msg_type === 'history' && message.history?.prices) {
+                        if (message.pip_size != null) pipSizeRef.current = message.pip_size;
+                        const historyDigits = message.history.prices
+                            .map(price => getLastDigit(Number(price), pipSizeRef.current))
+                            .filter(Number.isFinite);
+                        setDigits(historyDigits.slice(-MAX_TICKS));
+                        setLoadingHistory(false);
+                        if (socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({ ticks: symbol, subscribe: 1, req_id: 4 }));
+                        }
+                        return;
+                    }
+
+                    if (message.msg_type === 'tick' && message.tick?.quote != null) {
+                        if (message.tick.pip_size != null) pipSizeRef.current = message.tick.pip_size;
+                        const quote = Number(message.tick.quote);
+                        if (!Number.isFinite(quote)) return;
+                        setLastQuote(quote);
+                        setLastTickAt(Date.now());
+                        setDigits(current => [...current, getLastDigit(quote, pipSizeRef.current)].slice(-MAX_TICKS));
+                    }
+                } catch {
+                    setError('Received invalid market data from Deriv.');
+                }
+            };
+
+            socket.onerror = () => {
+                setConnected(false);
+                setLoadingMarkets(false);
+                setLoadingHistory(false);
+                setError('Unable to connect to Deriv public market data. Retrying…');
+            };
+
+            socket.onclose = event => {
+                setConnected(false);
+                if (disposed) return;
+
+                const attempt = Math.min(reconnectAttemptRef.current + 1, 6);
+                reconnectAttemptRef.current = attempt;
+                const delay = Math.min(1000 * 2 ** (attempt - 1), 15000);
+
+                if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+                reconnectTimerRef.current = setTimeout(connect, delay);
+
+                const detail = event.reason ? ` (${event.code}: ${event.reason})` : ` (${event.code})`;
+                setError(`Deriv connection closed${detail}. Reconnecting…`);
+            };
         };
-        socket.onclose = () => setConnected(false);
+
+        connect();
 
         return () => {
-            if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
-            if (socketRef.current === socket) socketRef.current = null;
+            disposed = true;
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+            if (socketRef.current?.readyState === WebSocket.OPEN || socketRef.current?.readyState === WebSocket.CONNECTING) {
+                socketRef.current.close();
+            }
+            socketRef.current = null;
         };
     }, [open, symbol]);
 
@@ -419,67 +450,23 @@ const AIDigitAnalyser = () => {
 
                     {aiResult && (
                         <div className='ai-digit-card ai-ai-card'>
-                            <div className='ai-card-title'>ADVANCED AI REASONING <span>{aiResult.action || 'ANALYSIS'}</span></div>
-                            <div className='ai-meta'>
-                                <span>AI bias <b>{aiResult.bias || '—'}</b></span>
-                                <span>AI confidence <b>{aiResult.confidence ?? '—'}%</b></span>
-                                <span>AI barrier <b>{aiResult.preferred_barrier ?? '—'}</b></span>
+                            <div className='ai-card-title'>ADVANCED AI REASONING <span>{aiResult.action || 'WAIT'}</span></div>
+                            <div className='ai-score-row'>
+                                <strong>{aiResult.bias || 'NEUTRAL'}</strong>
+                                <span>{Number(aiResult.confidence || 0)}%</span>
                             </div>
-                            <p>{aiResult.evidence || 'No explanation returned.'}</p>
-                            {aiResult.risk_note && <div className='ai-warning'>{aiResult.risk_note}</div>}
+                            <p>{aiResult.evidence || 'No reasoning returned.'}</p>
+                            {aiResult.preferred_barrier != null && (
+                                <div className='ai-meta'><span>Preferred barrier <b>{aiResult.preferred_barrier}</b></span></div>
+                            )}
+                            <div className='ai-risk'>{aiResult.risk_note || 'Use the model as analysis support, not as a guarantee.'}</div>
                         </div>
                     )}
-
-                    <div className='ai-metrics'>
-                        <div><small>EVEN</small><b>{Math.round(evenRate * 100)}%</b></div>
-                        <div><small>ODD</small><b>{Math.round((1 - evenRate) * 100)}%</b></div>
-                        <div><small>OVER 4</small><b>{Math.round(overRate * 100)}%</b></div>
-                        <div><small>UNDER 5</small><b>{Math.round((1 - overRate) * 100)}%</b></div>
-                        <div><small>ENTROPY</small><b>{selectedDigits.length ? entropy(selectedDigits).toFixed(2) : '—'}</b></div>
-                    </div>
-
-                    <div className='ai-digit-card'>
-                        <div className='ai-card-title'>DIGIT DISTRIBUTION <span>LAST {windowSize}</span></div>
-                        <div className='digit-grid'>
-                            {counts.map((count, digit) => (
-                                <div className='digit-item' key={digit}>
-                                    <span>{digit}</span>
-                                    <div className='digit-bar'><i style={{ width: `${selectedDigits.length ? Math.min(100, (count / selectedDigits.length) * 1000) : 0}%` }} /></div>
-                                    <b>{count}</b>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className='ai-digit-card'>
-                        <div className='ai-card-title'>ENGINE CHECKS</div>
-                        <div className='ai-checks'>
-                            <span>✓ Live Deriv active_symbols</span>
-                            <span>✓ Dynamic digit contracts</span>
-                            <span>✓ 500-tick history</span>
-                            <span>✓ History before live stream</span>
-                            <span>✓ 5 rolling windows</span>
-                            <span>✓ Pip precision handling</span>
-                            <span>✓ Server-side AI reasoning</span>
-                            <span>✓ New Deriv synthetic symbols</span>
-                        </div>
-                    </div>
-
-                    <div className='ai-digit-footer'>
-                        <span>AI engine • live market data + statistics + optional LLM reasoning</span>
-                        <small>Observed probabilities do not guarantee the next tick or profitability.</small>
-                    </div>
                 </div>
             )}
 
-            <button
-                className={`ai-digit-bubble ${open ? 'active' : ''}`}
-                onClick={() => setOpen(value => !value)}
-                aria-label='Open AI Digit Analyzer'
-            >
-                <span className='ai-orbit'>✦</span>
-                <strong>AI</strong>
-                <small>DIGITS</small>
+            <button className='ai-digit-launcher' onClick={() => setOpen(value => !value)} aria-label='Open SilverBullet AI'>
+                ✦
             </button>
         </div>
     );
