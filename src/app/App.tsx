@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import React from 'react';
-import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
-import { cleanupUrl, getAuthInfo, handleOAuthCallback } from '@/external/deriv-core';
+import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider } from 'react-router-dom';
+import { cleanupUrl, handleOAuthCallback } from '@/external/deriv-core';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import LocalStorageSyncWrapper from '@/components/localStorage-sync-wrapper';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
@@ -16,7 +16,6 @@ import './app-root.scss';
 
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
-const LandingPage = lazy(() => import('../pages/landing/landing'));
 
 const LanguageHandler = ({ children }: { children: React.ReactNode }) => {
     useLanguageFromURL();
@@ -42,31 +41,15 @@ const AppShell = () => (
     </Suspense>
 );
 
-const LandingShell = () => (
-    <Suspense fallback={<ChunkLoader message={localize('Loading SilverBulletFX...')} />}>
-        <LandingPage />
-    </Suspense>
-);
-
-const ProtectedAppShell = () => {
-    const hasAuthCode = new URLSearchParams(window.location.search).has('code');
-    const authenticated = Boolean(getAuthInfo());
-
-    if (!authenticated && !hasAuthCode) {
-        return <LandingShell />;
-    }
-
-    return <AppShell />;
-};
-
 const routerBasename = isPreviewMode() ? PREVIEW_BASE_PATH : undefined;
 
 const router = createBrowserRouter(
     createRoutesFromElements(
         <>
-            <Route path='/' element={<LandingShell />} />
-            <Route path='/app' element={<ProtectedAppShell />}><Route index element={<AppRoot />} /></Route>
-            <Route path='/preview' element={<ProtectedAppShell />}><Route index element={<AppRoot />} /></Route>
+            {/* Landing page removed: the application now opens directly in the trading app. */}
+            <Route path='/' element={<Navigate to='/app' replace />} />
+            <Route path='/app' element={<AppShell />}><Route index element={<AppRoot />} /></Route>
+            <Route path='/preview' element={<AppShell />}><Route index element={<AppRoot />} /></Route>
         </>
     ),
     { basename: routerBasename }
