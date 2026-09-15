@@ -1,0 +1,32 @@
+.sbf-ai-bubble { position: fixed; right: 24px; bottom: 24px; z-index: 10000; display: flex; align-items: center; gap: 9px; padding: 12px 17px 12px 12px; border: 1px solid rgba(120,220,255,.55); border-radius: 999px; color: #eafcff; background: linear-gradient(135deg,rgba(8,21,39,.96),rgba(21,48,72,.96)); box-shadow: 0 0 25px rgba(62,201,255,.25),inset 0 0 18px rgba(100,220,255,.06); cursor: pointer; font-weight: 700; }
+.sbf-ai-bubble:hover { transform: translateY(-2px); box-shadow: 0 0 35px rgba(62,201,255,.4); }
+.sbf-ai-bubble__orb { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle,#baf5ff 0 8%,#3ec9ff 40%,#15334c 72%); color: #06131e; box-shadow: 0 0 16px rgba(62,201,255,.7); }
+.sbf-ai-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; justify-content: flex-end; background: rgba(1,7,15,.66); backdrop-filter: blur(7px); }
+.sbf-ai-panel { width: min(760px,100vw); height: 100%; overflow-y: auto; padding: 28px; color: #eafcff; background: linear-gradient(145deg,#07111e 0%,#0b1828 52%,#06101c 100%); border-left: 1px solid rgba(105,220,255,.3); box-shadow: -20px 0 80px rgba(0,0,0,.5); }
+.sbf-ai-header { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.sbf-ai-kicker,.sbf-ai-card-title { color: #62d9ff; font-size: 11px; font-weight: 800; letter-spacing: .14em; }
+.sbf-ai-header h2 { margin: 7px 0 5px; font-size: 28px; }
+.sbf-ai-header p { margin: 0; color: #8ca7ba; font-size: 13px; }
+.sbf-ai-close { width: 38px; height: 38px; border: 1px solid #29455b; border-radius: 50%; color: #cdefff; background: transparent; font-size: 25px; cursor: pointer; }
+.sbf-ai-grid { display: grid; gap: 14px; }
+.sbf-ai-card { padding: 18px; border: 1px solid rgba(116,194,225,.16); border-radius: 16px; background: rgba(8,22,36,.78); }
+.sbf-ai-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.sbf-ai-card label { display: grid; gap: 7px; margin-top: 12px; color: #91aabd; font-size: 12px; }
+.sbf-ai-card select { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid #29465b; border-radius: 10px; color: #eafcff; background: #091725; outline: none; }
+.sbf-ai-card select:focus { border-color: #4bcfff; box-shadow: 0 0 0 2px rgba(75,207,255,.12); }
+.sbf-ai-secondary { margin-top: 12px; border: 0; color: #62d9ff; background: transparent; cursor: pointer; font-size: 12px; }
+.sbf-ai-contract-status { margin-top: 12px; color: #6e899b; font-size: 11px; }
+.sbf-ai-actionbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0; padding: 12px 14px; border: 1px solid rgba(116,194,225,.13); border-radius: 12px; color: #8ea7b9; background: rgba(7,18,29,.7); font-size: 12px; }
+.sbf-ai-status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #49d7ff; box-shadow: 0 0 9px #49d7ff; }
+.sbf-ai-analyse { padding: 11px 16px; border: 1px solid #59d9ff; border-radius: 9px; color: #04111a; background: #66ddff; font-weight: 900; cursor: pointer; }
+.sbf-ai-analyse:disabled { opacity: .45; cursor: not-allowed; }
+.sbf-ai-error { margin-bottom: 14px; padding: 12px; border: 1px solid rgba(255,100,100,.35); border-radius: 10px; color: #ffb2b2; background: rgba(80,10,15,.3); font-size: 12px; }
+.sbf-ai-stats,.sbf-ai-result-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 14px; }
+.sbf-ai-stats div,.sbf-ai-result-grid div { min-width: 0; padding: 12px; border-radius: 10px; background: rgba(13,34,51,.7); }
+.sbf-ai-stats span,.sbf-ai-result-grid span { display: block; color: #6e8fa5; font-size: 9px; letter-spacing: .1em; }
+.sbf-ai-stats strong,.sbf-ai-result-grid strong { display: block; margin-top: 5px; color: #e5fbff; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sbf-ai-result { margin-top: 14px; }
+.sbf-ai-result p { color: #a7bdca; font-size: 12px; line-height: 1.6; }
+.sbf-ai-result p b { color: #e5fbff; }
+.sbf-ai-disclaimer { margin-top: 12px; padding: 10px; border-left: 2px solid #4acfff; color: #7894a6; background: rgba(60,190,255,.05); font-size: 10px; line-height: 1.5; }
+@media (max-width:620px) { .sbf-ai-bubble{right:14px;bottom:14px}.sbf-ai-panel{padding:18px}.sbf-ai-row,.sbf-ai-stats,.sbf-ai-result-grid{grid-template-columns:1fr}.sbf-ai-actionbar{align-items:stretch;flex-direction:column} }
